@@ -1,4 +1,0 @@
-Flask
-pymongo
-azure-storage-blob
-gunicorn

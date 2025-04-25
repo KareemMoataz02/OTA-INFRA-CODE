@@ -5,11 +5,13 @@ from datetime import datetime
 class CarType:
     """Class representing a car type"""
     
-    def __init__(self, name: str, model_number: str, ecus: List['ECU'], 
-                 manufactured_count: int = 0, car_ids: List[str] = None):
+    def __init__(self, name: str, model_number: str, ecus: List['ECU'], ecu_ids: List[str] = [], 
+                 manufactured_count: int = 0, car_ids: List[str] = None, id = "0"):
+        self.id = id
         self.name = name
         self.model_number = model_number
         self.ecus = ecus
+        self.ecu_ids = ecu_ids
         self.manufactured_count = manufactured_count
         self.car_ids = car_ids or []
 

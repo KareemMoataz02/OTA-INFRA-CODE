@@ -4,7 +4,7 @@ from models import ServiceRequest, DownloadRequest, RequestStatus, ServiceType
 
 request_bp = Blueprint('request', __name__)
 
-@request_bp.route('/service', methods=['POST'])
+@request_bp.route('/service/', methods=['POST'])
 def create_service_request():
     """Create a new service request"""
     data = request.json
@@ -45,7 +45,7 @@ def create_service_request():
     else:
         return jsonify({'error': 'Failed to create service request'}), 500
 
-@request_bp.route('/download', methods=['POST'])
+@request_bp.route('/download/', methods=['POST'])
 def create_download_request():
     """Create a new download request"""
     data = request.json
@@ -98,7 +98,7 @@ def create_download_request():
     else:
         return jsonify({'error': 'Failed to create download request'}), 500
 
-@request_bp.route('/download/<car_id>/status', methods=['PUT'])
+@request_bp.route('/download/<car_id>/status/', methods=['PUT'])
 def update_download_status(car_id):
     """Update the status of a download request"""
     data = request.json
@@ -124,7 +124,7 @@ def update_download_status(car_id):
     else:
         return jsonify({'error': 'Failed to update status'}), 500
 
-@request_bp.route('/car/<car_id>', methods=['GET'])
+@request_bp.route('/car/<car_id>/', methods=['GET'])
 def get_requests_for_car(car_id):
     """Get all requests for a specific car"""
     request_service = current_app.db_service.get_request_service()
@@ -140,7 +140,7 @@ def get_requests_for_car(car_id):
     
     return jsonify(result)
 
-@request_bp.route('/service/status/<status>', methods=['GET'])
+@request_bp.route('/service/status/<status>/', methods=['GET'])
 def get_service_requests_by_status(status):
     """Get all service requests with a specific status"""
     try:
@@ -153,7 +153,7 @@ def get_service_requests_by_status(status):
     
     return jsonify(service_requests)
 
-@request_bp.route('/download/status/<status>', methods=['GET'])
+@request_bp.route('/download/status/<status>/', methods=['GET'])
 def get_download_requests_by_status(status):
     """Get all download requests with a specific status"""
     try:
@@ -166,7 +166,7 @@ def get_download_requests_by_status(status):
     
     return jsonify(download_requests)
 
-@request_bp.route('/download/active', methods=['GET'])
+@request_bp.route('/download/active/', methods=['GET'])
 def get_active_downloads():
     """Get all active download requests"""
     request_service = current_app.db_service.get_request_service()

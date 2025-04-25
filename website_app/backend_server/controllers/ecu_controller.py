@@ -2,7 +2,7 @@ from flask import Blueprint, jsonify, request, current_app
 
 ecu_bp = Blueprint('ecu', __name__)
 
-@ecu_bp.route('/car-type/<car_type_name>', methods=['GET'])
+@ecu_bp.route('/car-type/<car_type_name>/', methods=['GET'])
 def get_ecus_for_car_type(car_type_name):
     """Get all ECUs for a specific car type"""
     # First get the car type to extract its ECUs
@@ -24,7 +24,7 @@ def get_ecus_for_car_type(car_type_name):
     
     return jsonify(result)
 
-@ecu_bp.route('/<ecu_name>/<ecu_model>', methods=['GET'])
+@ecu_bp.route('/<ecu_name>/<ecu_model>/', methods=['GET'])
 def get_ecu_details(ecu_name, ecu_model):
     """Get details for a specific ECU"""
     ecu_service = current_app.db_service.get_ecu_service()
@@ -50,7 +50,7 @@ def get_ecu_details(ecu_name, ecu_model):
     
     return jsonify(result)
 
-@ecu_bp.route('/compatible/<car_type_name>', methods=['GET'])
+@ecu_bp.route('/compatible/<car_type_name>/', methods=['GET'])
 def get_compatible_ecus(car_type_name):
     """Get all ECUs compatible with a specific car type"""
     ecu_service = current_app.db_service.get_ecu_service()

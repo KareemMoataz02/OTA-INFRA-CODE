@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, request, current_app
 from models import CarType, ECU, Version
+from bson import ObjectId
 
 car_type_bp = Blueprint('car_type', __name__)
 
@@ -13,20 +14,24 @@ def get_all_car_types():
     result = []
     for car_type in car_types:
         result.append({
+            'id': str(car_type.id),  # Convert ObjectId to string
             'name': car_type.name,
             'model_number': car_type.model_number,
             'manufactured_count': car_type.manufactured_count,
             'car_ids_count': len(car_type.car_ids),
-            'ecus_count': len(car_type.ecus)
+            'car_ids': [str(car_id) for car_id in car_type.car_ids],  # Convert each ObjectId to string
+            'ecus_count': len(car_type.ecus),
+            'ecus_id': [str(ecu) for ecu in car_type.ecu_ids],  # Convert each ObjectId to string
         })
     
     return jsonify(result)
 
-@car_type_bp.route('/<name>', methods=['GET'])
+
+@car_type_bp.route('/<name>/', methods=['GET'])
 def get_car_type(name):
     """Get a specific car type by name"""
     service = current_app.db_service.get_car_type_service()
-    car_type = service.get_by_name(name)
+    car_type = service.get_by_name(name.lower())
     
     if not car_type:
         return jsonify({'error': 'Car type not found'}), 404
@@ -58,7 +63,8 @@ def get_car_type(name):
     
     return jsonify(result)
 
-@car_type_bp.route('/model/<model_number>', methods=['GET'])
+
+@car_type_bp.route('/model/<model_number>/', methods=['GET'])
 def get_car_type_by_model(model_number):
     """Get a specific car type by model number"""
     service = current_app.db_service.get_car_type_service()
@@ -93,6 +99,7 @@ def get_car_type_by_model(model_number):
     }
     
     return jsonify(result)
+
 
 @car_type_bp.route('/', methods=['POST'])
 def create_car_type():
@@ -137,7 +144,10 @@ def create_car_type():
     else:
         return jsonify({'error': 'Failed to create car type'}), 500
 
-@car_type_bp.route('/<name>', methods=['PUT'])
+
+
+# Needs to be tested
+@car_type_bp.route('/<name>/', methods=['PUT'])
 def update_car_type(name):
     """Update an existing car type"""
     service = current_app.db_service.get_car_type_service()
@@ -190,7 +200,9 @@ def update_car_type(name):
     else:
         return jsonify({'error': 'Failed to update car type'}), 500
 
-@car_type_bp.route('/<name>', methods=['PATCH'])
+
+# Needs to be tested
+@car_type_bp.route('/<name>/', methods=['PATCH'])
 def partial_update_car_type(name):
     """Partially update a car type"""
     service = current_app.db_service.get_car_type_service()
@@ -229,7 +241,8 @@ def partial_update_car_type(name):
     # If no valid fields provided
     return jsonify({'message': 'No fields to update'})
 
-@car_type_bp.route('/<name>', methods=['DELETE'])
+
+@car_type_bp.route('/<name>/', methods=['DELETE'])
 def delete_car_type(name):
     """Delete a car type"""
     service = current_app.db_service.get_car_type_service()
@@ -246,7 +259,8 @@ def delete_car_type(name):
     else:
         return jsonify({'error': 'Failed to delete car type'}), 500
 
-@car_type_bp.route('/statistics', methods=['GET'])
+
+@car_type_bp.route('/statistics/', methods=['GET'])
 def get_statistics():
     """Get statistics about car types"""
     service = current_app.db_service.get_car_type_service()

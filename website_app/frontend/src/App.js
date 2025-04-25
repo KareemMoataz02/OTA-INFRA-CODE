@@ -127,7 +127,7 @@ function App() {
                 />
 
                 {/* Requests */}
-                <Route
+                {/* <Route
                   path="/requests"
                   element={<RequestList showAlert={showAlert} />}
                 />
@@ -146,7 +146,7 @@ function App() {
                 <Route
                   path="/requests/download/active"
                   element={<ActiveDownloads showAlert={showAlert} />}
-                />
+                /> */}
               </Routes>
             </main>
           </div>

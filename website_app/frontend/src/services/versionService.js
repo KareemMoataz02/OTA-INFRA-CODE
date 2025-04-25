@@ -69,6 +69,49 @@ const versionService = {
   async getCompatibleVersions(carTypeName) {
     return api.get(`${baseEndpoint}/compatible/${carTypeName}`);
   },
+
+  /**
+   * Upload a firmware file to Azure Blob Storage and save its details
+   * @param {Object} versionData - Data for the new version
+   * @param {string} versionData.ecuName - ECU name
+   * @param {string} versionData.ecuModel - ECU model number
+   * @param {string} versionData.versionNumber - Version number
+   * @param {Array<string>} versionData.compatibleCarTypes - List of compatible car types
+   * @param {File} versionData.hexFile - The actual hex/srec file to upload
+   * @returns {Promise<Object>} - Result of the upload operation
+   */
+  async uploadFirmware(versionData) {
+    // Create a FormData object to send the file
+    const formData = new FormData();
+
+    // Append file to the form data
+    formData.append("file", versionData.hexFile);
+
+    // Append other version metadata
+    formData.append("ecuName", versionData.ecuName);
+    formData.append("ecuModel", versionData.ecuModel);
+    formData.append("versionNumber", versionData.versionNumber);
+    formData.append(
+      "compatibleCarTypes",
+      JSON.stringify(versionData.compatibleCarTypes)
+    );
+
+    // Custom fetch for multipart/form-data
+    const response = await fetch(
+      `${API_CONFIG.baseURL}${baseEndpoint}/upload-to-azure`,
+      {
+        method: "POST",
+        body: formData,
+        // Don't set Content-Type header - browser will set it with boundary for multipart/form-data
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status} ${response.statusText}`);
+    }
+
+    return response.json();
+  },
 };
 
 export default versionService;

@@ -22,8 +22,7 @@ function Sidebar() {
                 isActive("/") &&
                 !isActive("/car-types") &&
                 !isActive("/ecus") &&
-                !isActive("/versions") &&
-                !isActive("/requests")
+                !isActive("/versions")
                   ? "active"
                   : ""
               }`}
@@ -43,48 +42,6 @@ function Sidebar() {
               Car Types
             </Link>
           </li>
-
-          <li className="nav-item">
-            <Link
-              className={`nav-link ${isActive("/ecus") ? "active" : ""}`}
-              to="/ecus"
-              onClick={(e) => {
-                if (!location.pathname.includes("/car-types/")) {
-                  e.preventDefault();
-                  alert("Please select a car type first");
-                }
-              }}
-            >
-              <i className="bi bi-cpu me-2"></i>
-              ECUs
-            </Link>
-          </li>
-
-          <li className="nav-item">
-            <Link
-              className={`nav-link ${isActive("/versions") ? "active" : ""}`}
-              to="/versions"
-              onClick={(e) => {
-                if (!location.pathname.includes("/ecus/")) {
-                  e.preventDefault();
-                  alert("Please select an ECU first");
-                }
-              }}
-            >
-              <i className="bi bi-hdd me-2"></i>
-              Firmware Versions
-            </Link>
-          </li>
-
-          <li className="nav-item">
-            <Link
-              className={`nav-link ${isActive("/requests") ? "active" : ""}`}
-              to="/requests"
-            >
-              <i className="bi bi-arrow-repeat me-2"></i>
-              Requests
-            </Link>
-          </li>
         </ul>
 
         <h6 className="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
@@ -101,24 +58,6 @@ function Sidebar() {
             <Link className="nav-link" to="/versions/upload">
               <i className="bi bi-upload me-2"></i>
               Upload Firmware
-            </Link>
-          </li>
-          <li className="nav-item">
-            <Link className="nav-link" to="/requests/service/new">
-              <i className="bi bi-tools me-2"></i>
-              New Service Request
-            </Link>
-          </li>
-          <li className="nav-item">
-            <Link className="nav-link" to="/requests/download/new">
-              <i className="bi bi-download me-2"></i>
-              New Download Request
-            </Link>
-          </li>
-          <li className="nav-item">
-            <Link className="nav-link" to="/requests/download/active">
-              <i className="bi bi-lightning me-2"></i>
-              Active Downloads
             </Link>
           </li>
         </ul>

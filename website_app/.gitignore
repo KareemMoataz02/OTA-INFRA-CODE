@@ -1,2 +1,2 @@
 website_app/frontend/node_modules/*
-website_app/backend_server/.env
+website_app/backend/.env

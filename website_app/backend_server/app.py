@@ -1,22 +1,24 @@
 from flask import Flask
+from flask_cors import CORS
 from controllers.car_type_controller import car_type_bp
 from controllers.ecu_controller import ecu_bp
 from controllers.version_controller import version_bp
 from controllers.request_controller import request_bp
 from services.database_service import DatabaseService
-from app_json_encoder import MongoJSONEncoder
 import os
 
 def create_app(test_config=None):
     # Create and configure the app
     app = Flask(__name__, instance_relative_config=True)
+    
+    # Enable CORS for all routes with explicit origins
+    CORS(app, resources={r"/api/*": {"origins": "http://localhost:3000"}}, supports_credentials=True)
+
+    
     app.config.from_mapping(
         SECRET_KEY='dev',
         DATA_DIRECTORY=os.path.join(app.instance_path, 'data'),
     )
-
-    # Set custom JSON encoder for MongoDB ObjectId
-    app.json_encoder = MongoJSONEncoder
 
     if test_config is None:
         # Load the instance config, if it exists, when not testing
@@ -32,7 +34,7 @@ def create_app(test_config=None):
     except OSError:
         pass
 
-    # Initialize the database service and add it to app
+    # Initialize the database service
     app.db_service = DatabaseService(app.config['DATA_DIRECTORY'])
 
     # Register blueprints
@@ -40,6 +42,14 @@ def create_app(test_config=None):
     app.register_blueprint(ecu_bp, url_prefix='/api/ecus')
     app.register_blueprint(version_bp, url_prefix='/api/versions')
     app.register_blueprint(request_bp, url_prefix='/api/requests')
+
+    # Add OPTIONS response for all routes
+    @app.after_request
+    def after_request(response):
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+        return response
 
     # Create a simple index route
     @app.route('/')

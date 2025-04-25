@@ -3,3 +3,6 @@ pymongo==4.5.0
 python-dotenv==1.0.0
 Flask-Cors==4.0.0
 gunicorn==21.2.0
+flask-cors
+azure-storage-blob
+python-dotenv

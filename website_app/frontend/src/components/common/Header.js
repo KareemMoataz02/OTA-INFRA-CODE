@@ -61,46 +61,6 @@ function Header() {
                   </li>
                 </ul>
               </li>
-              <li className="nav-item dropdown">
-                <a
-                  className="nav-link dropdown-toggle"
-                  href="#"
-                  id="navbarDropdownRequests"
-                  role="button"
-                  data-bs-toggle="dropdown"
-                  aria-expanded="false"
-                >
-                  Requests
-                </a>
-                <ul
-                  className="dropdown-menu"
-                  aria-labelledby="navbarDropdownRequests"
-                >
-                  <li>
-                    <Link className="dropdown-item" to="/requests">
-                      View All
-                    </Link>
-                  </li>
-                  <li>
-                    <Link className="dropdown-item" to="/requests/service/new">
-                      New Service Request
-                    </Link>
-                  </li>
-                  <li>
-                    <Link className="dropdown-item" to="/requests/download/new">
-                      New Download Request
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      className="dropdown-item"
-                      to="/requests/download/active"
-                    >
-                      Active Downloads
-                    </Link>
-                  </li>
-                </ul>
-              </li>
               <li className="nav-item">
                 <Link className="nav-link" to="/versions/upload">
                   Upload Firmware

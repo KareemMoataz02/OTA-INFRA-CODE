@@ -250,7 +250,7 @@ function CarTypeDetail({ showAlert }) {
             <p className="text-muted">No ECUs added to this car type.</p>
           )}
 
-          <div className="mt-3">
+          <div className="mt-3 text-end">
             <Link
               to={`/ecus/${carType.name}`}
               className="btn btn-outline-primary"
@@ -265,21 +265,6 @@ function CarTypeDetail({ showAlert }) {
         <Link to="/car-types" className="btn btn-outline-secondary">
           <i className="bi bi-arrow-left me-1"></i> Back to Car Types
         </Link>
-
-        <div>
-          <Link
-            to={`/requests/service/new?car_type=${carType.name}`}
-            className="btn btn-success me-2"
-          >
-            <i className="bi bi-tools me-1"></i> New Service Request
-          </Link>
-          <Link
-            to={`/requests/download/new?car_type=${carType.name}`}
-            className="btn btn-primary"
-          >
-            <i className="bi bi-download me-1"></i> New Download Request
-          </Link>
-        </div>
       </div>
     </div>
   );

@@ -7,7 +7,6 @@ import Loading from "../common/Loading";
 function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
-  const [activeDownloads, setActiveDownloads] = useState([]);
   const [carTypes, setCarTypes] = useState([]);
   const [error, setError] = useState(null);
 
@@ -17,15 +16,12 @@ function Dashboard() {
         setLoading(true);
 
         // Fetch data in parallel
-        const [statsData, activeDownloadsData, carTypesData] =
-          await Promise.all([
-            carTypeService.getCarTypeStatistics(),
-            requestService.getActiveDownloads(),
-            carTypeService.getAllCarTypes(),
-          ]);
+        const [statsData, carTypesData] = await Promise.all([
+          carTypeService.getCarTypeStatistics(),
+          carTypeService.getAllCarTypes(),
+        ]);
 
         setStats(statsData);
-        setActiveDownloads(activeDownloadsData);
         setCarTypes(carTypesData);
         setError(null);
       } catch (error) {
@@ -95,14 +91,6 @@ function Dashboard() {
             </div>
           </div>
           <div className="col-md-3">
-            <div className="card text-white bg-info mb-3">
-              <div className="card-body">
-                <h5 className="card-title">Active Downloads</h5>
-                <p className="card-text display-4">{activeDownloads.length}</p>
-              </div>
-            </div>
-          </div>
-          <div className="col-md-3">
             <div className="card text-white bg-warning mb-3">
               <div className="card-body">
                 <h5 className="card-title">ECUs</h5>
@@ -117,83 +105,6 @@ function Dashboard() {
           </div>
         </div>
       )}
-
-      {/* Active Downloads */}
-      <div className="row mb-4">
-        <div className="col-12">
-          <div className="card">
-            <div className="card-header d-flex justify-content-between align-items-center">
-              <h5 className="mb-0">Active Downloads</h5>
-              <Link
-                to="/requests/download/active"
-                className="btn btn-sm btn-outline-primary"
-              >
-                View All
-              </Link>
-            </div>
-            <div className="card-body">
-              {activeDownloads.length === 0 ? (
-                <p className="text-muted">No active downloads at the moment.</p>
-              ) : (
-                <div className="table-responsive">
-                  <table className="table table-striped table-sm">
-                    <thead>
-                      <tr>
-                        <th>Car ID</th>
-                        <th>Car Type</th>
-                        <th>Progress</th>
-                        <th>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {activeDownloads.slice(0, 5).map((download) => (
-                        <tr key={download._id}>
-                          <td>{download.car_id}</td>
-                          <td>{download.car_type}</td>
-                          <td>
-                            <div className="progress">
-                              <div
-                                className="progress-bar progress-bar-striped progress-bar-animated"
-                                role="progressbar"
-                                style={{
-                                  width: `${
-                                    (download.transferred_size /
-                                      download.total_size) *
-                                    100
-                                  }%`,
-                                }}
-                                aria-valuenow={
-                                  (download.transferred_size /
-                                    download.total_size) *
-                                  100
-                                }
-                                aria-valuemin="0"
-                                aria-valuemax="100"
-                              >
-                                {Math.round(
-                                  (download.transferred_size /
-                                    download.total_size) *
-                                    100
-                                )}
-                                %
-                              </div>
-                            </div>
-                          </td>
-                          <td>
-                            <span className="badge bg-primary">
-                              {download.status}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* Car Types */}
       <div className="row">

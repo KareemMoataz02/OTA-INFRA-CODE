@@ -19,7 +19,7 @@ const api = {
     });
 
     try {
-      const response = await fetch(url.toString(), {
+      const response = await fetch(url.toString() + "/", {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -46,7 +46,7 @@ const api = {
    */
   async post(endpoint, data = {}) {
     try {
-      const response = await fetch(`${API_CONFIG.baseURL}${endpoint}`, {
+      const response = await fetch(`${API_CONFIG.baseURL}${endpoint}` + "/", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -74,7 +74,7 @@ const api = {
    */
   async put(endpoint, data = {}) {
     try {
-      const response = await fetch(`${API_CONFIG.baseURL}${endpoint}`, {
+      const response = await fetch(`${API_CONFIG.baseURL}${endpoint}` + "/", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -102,7 +102,7 @@ const api = {
    */
   async patch(endpoint, data = {}) {
     try {
-      const response = await fetch(`${API_CONFIG.baseURL}${endpoint}`, {
+      const response = await fetch(`${API_CONFIG.baseURL}${endpoint}` + "/", {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -129,7 +129,7 @@ const api = {
    */
   async delete(endpoint) {
     try {
-      const response = await fetch(`${API_CONFIG.baseURL}${endpoint}`, {
+      const response = await fetch(`${API_CONFIG.baseURL}${endpoint}` + "/", {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
@@ -155,7 +155,7 @@ const api = {
    */
   async downloadFile(endpoint) {
     try {
-      const response = await fetch(`${API_CONFIG.baseURL}${endpoint}`, {
+      const response = await fetch(`${API_CONFIG.baseURL}${endpoint}` + "/", {
         method: "GET",
       });
 

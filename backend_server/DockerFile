@@ -1,0 +1,31 @@
+# ────────────────────────────────────────────────────────────────
+#  OTA - BACKEND  ·  Flask + Gunicorn  ·  Python 3.11
+# ────────────────────────────────────────────────────────────────
+FROM python:3.11-slim
+
+# --- Runtime basics -----------------------------------------------------------
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+# Lightweight OS packages - add more only if you really need them
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+    curl \
+    ca-certificates \
+    # dnsutils \         # optional, for nslookup debugging
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# --- Python dependencies ------------------------------------------------------
+COPY website_app/backend_server/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# --- Application source -------------------------------------------------------
+COPY website_app/backend_server/ .
+# --- Expose & launch -------------------------------------------------------
+EXPOSE 80
+# If app.py contains `app = create_app()`:
+CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:80", "--workers", "1", "--timeout", "120"]
+# CMD ["gunicorn", "-w", "3", "-b", "0.0.0.0:80", "backend_server.app:create_app()"]
+

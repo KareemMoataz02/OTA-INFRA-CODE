@@ -1,0 +1,10 @@
+website_app/frontend/node_modules/*
+
+# Ignore all .env files anywhere in the repo
+*.env
+
+# Explicit .env files (optional redundancy — safe to include)
+.env
+backend_server/.env
+website_app/backend/.env
+

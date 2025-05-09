@@ -7,6 +7,7 @@ import logging
 from models import *
 from protocol import Protocol
 from database_manager import DatabaseManager
+from bson import ObjectId
 
 logging.basicConfig(level=logging.INFO)
 
@@ -29,7 +30,7 @@ class ECUUpdateServer:
             self.car_types = self.db_manager.load_all_data()
             if not self.car_types:
                 raise Exception("Failed to load car types database")
-
+            print(self.car_types)
             # Create and bind socket
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -186,13 +187,18 @@ class ECUUpdateServer:
         """Authenticate the car request"""
         try:
             car_type = next((ct for ct in self.car_types 
-                           if ct.name == request.car_type), None)
+                           if ct.name.lower() == request.car_type.lower()), None)
             
             if not car_type:
+                print("bazet fl car type")
                 request.status = RequestStatus.NON_AUTHENTICATED
                 return False
 
-            if request.car_id not in car_type.car_ids:
+            print(f"\n\n request.car_id.lower(): {request.car_id.lower()}")
+            print(f"car_type.car_ids: {car_type.car_ids}")
+            car_type.car_ids = [car_id.lower() for car_id in car_type.car_ids]
+            if request.car_id.lower() not in car_type.car_ids:
+                print("bazet fl id")
                 request.status = RequestStatus.NON_AUTHENTICATED
                 return False
 
@@ -260,12 +266,17 @@ class ECUUpdateServer:
     def handle_download_request(self, request: Request, client_socket: socket.socket):
         """Handle download request for new ECU versions"""
         try:
+            logging.info(f"starting new download request for client with ip:{request.ip_address} on port:{request.port}")
             # Get download information from metadata
             required_versions = request.metadata.get('required_versions', {})
             old_versions = request.metadata.get('old_versions', {})
 
+            file_offsets = request.metadata.get('file_offsets', {})
+            print(f"\n\nserver: file_offsets: {file_offsets}\n\n")
+            
             if not required_versions:
                 raise Exception("No versions specified for download")
+
 
             # Create download request
             download_request = DownloadRequest(
@@ -277,7 +288,9 @@ class ECUUpdateServer:
                 required_versions=required_versions,
                 old_versions=old_versions,
                 status=DownloadStatus.PREPARING_FILES,
-                active_transfers={}
+                active_transfers={},
+                file_offsets=file_offsets
+
             )
 
             self.active_downloads[request.car_id] = download_request
@@ -319,21 +332,33 @@ class ECUUpdateServer:
 
                 file_size = self.db_manager.get_file_size(version.hex_file_path)
                 total_size += file_size
+                
+                # Get offset from download_request.files_offset (default to 0)
+                offset = download_request.file_offsets.get(ecu_name, 0)
+
                 files_info[ecu_name] = {
                     'path': version.hex_file_path,
                     'size': file_size,
-                    'transferred': 0
+                    'transferred': offset  # <-- Use offset here
                 }
 
             download_request.total_size = total_size
 
             # Send download start message
+            # start_message = Protocol.create_message(Protocol.DOWNLOAD_START, {
+            #     'total_size': total_size,
+            #     'files': {name: info['size'] for name, info in files_info.items()}
+            # })
+
+            # Send download start message
             start_message = Protocol.create_message(Protocol.DOWNLOAD_START, {
                 'total_size': total_size,
-                'files': {name: info['size'] for name, info in files_info.items()}
+                'files': {name: info['size'] for name, info in files_info.items()},
+                'file_offsets': {name: info['transferred'] for name, info in files_info.items()}
             })
+            
             client_socket.send(start_message)
-
+            logging.info(f"Download Start message for client on ip:{download_request.ip_address} port: {download_request.port} , with message:{start_message}")
             # Wait for client acknowledgment
             ack = self.receive_message(client_socket)
             if not ack or ack['type'] != "DOWNLOAD_ACK":
@@ -348,7 +373,8 @@ class ECUUpdateServer:
                         ecu_name,
                         file_info['path'],
                         file_info['size'],
-                        download_request
+                        download_request,
+                        start_offset=file_info['transferred']  # <-- Pass offset here
                     )
                     successful_transfers += 1
                 except Exception as e:
@@ -378,10 +404,11 @@ class ECUUpdateServer:
             ))
 
     def transfer_file(self, client_socket: socket.socket, ecu_name: str, 
-                     file_path: str, file_size: int, download_request: DownloadRequest):
+                     file_path: str, file_size: int, download_request: DownloadRequest, start_offset: int = 0):
         """Transfer a single file to client"""
         print(f"file_path: {file_path}")
-        offset = 0
+        print(f"File offset: {start_offset}")
+        offset = start_offset
         while offset < file_size:
             chunk = self.db_manager.get_hex_file_chunk(file_path, self.chunk_size, offset)
             if not chunk:

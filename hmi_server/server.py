@@ -16,6 +16,7 @@ class ECUUpdateServer:
         self.host = host
         self.port = port
         self.db_manager = DatabaseManager(data_directory)
+        self.data_directory=data_directory
         self.car_types: List[CarType] = []
         self.active_requests: Dict[str, Request] = {}  # car_id -> Request
         self.active_downloads: Dict[str, DownloadRequest] = {}  # car_id -> DownloadRequest
@@ -233,6 +234,7 @@ class ECUUpdateServer:
             ))
 
     def check_for_updates(self, request: Request, client_socket: socket.socket):
+        self.db_manager = DatabaseManager(self.data_directory)
         self.car_types = self.db_manager.load_all_data()
         logging.info(f"checking-for-update method started processing for client:{request.ip_address}")
         """Check if updates are available for the car"""

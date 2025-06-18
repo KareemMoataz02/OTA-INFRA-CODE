@@ -2,7 +2,7 @@ import json
 from typing import Dict, Any
 
 class Protocol:
-    # Message types
+    # Existing message types
     HANDSHAKE = "HANDSHAKE"
     UPDATE_CHECK = "UPDATE_CHECK"
     UPDATE_RESPONSE = "UPDATE_RESPONSE"
@@ -11,6 +11,12 @@ class Protocol:
     FILE_CHUNK = "FILE_CHUNK"
     DOWNLOAD_COMPLETE = "DOWNLOAD_COMPLETE"
     ERROR = "ERROR"
+    
+    # NEW: Flashing feedback message types
+    FLASHING_FEEDBACK = "FLASHING_FEEDBACK"
+    FLASHING_FEEDBACK_ACK = "FLASHING_FEEDBACK_ACK"
+    SERVER_METRICS_REQUEST = "SERVER_METRICS_REQUEST"
+    SERVER_METRICS_RESPONSE = "SERVER_METRICS_RESPONSE"
 
     @staticmethod
     def create_message(msg_type: str, payload: Dict) -> bytes:
@@ -50,4 +56,25 @@ class Protocol:
         return Protocol.create_message(Protocol.ERROR, {
             "code": error_code,
             "message": error_message
+        })
+
+    # NEW: Flashing feedback protocol methods
+    @staticmethod
+    def create_flashing_feedback_ack(success: bool, message: str, session_id: str = None) -> bytes:
+        """Create acknowledgment for flashing feedback"""
+        payload = {
+            "success": success,
+            "message": message,
+            "timestamp": json.dumps({"$date": {"$numberLong": str(int(json.loads(json.dumps({})).get("timestamp", 0) * 1000))}}) if "timestamp" in locals() else None
+        }
+        if session_id:
+            payload["session_id"] = session_id
+        return Protocol.create_message(Protocol.FLASHING_FEEDBACK_ACK, payload)
+
+    @staticmethod
+    def create_metrics_response(metrics: Dict[str, Any]) -> bytes:
+        """Create server metrics response"""
+        return Protocol.create_message(Protocol.SERVER_METRICS_RESPONSE, {
+            "metrics": metrics,
+            "timestamp": json.dumps({"$date": {"$numberLong": str(int(__import__("time").time() * 1000))}})
         })

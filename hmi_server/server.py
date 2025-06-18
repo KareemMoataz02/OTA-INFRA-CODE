@@ -8,6 +8,7 @@ from models import *
 from protocol import Protocol
 from database_manager import DatabaseManager
 from bson import ObjectId
+import uuid
 
 logging.basicConfig(level=logging.INFO)
 
@@ -16,7 +17,7 @@ class ECUUpdateServer:
         self.host = host
         self.port = port
         self.db_manager = DatabaseManager(data_directory)
-        self.data_directory=data_directory
+        self.data_directory = data_directory
         self.car_types: List[CarType] = []
         self.active_requests: Dict[str, Request] = {}  # car_id -> Request
         self.active_downloads: Dict[str, DownloadRequest] = {}  # car_id -> DownloadRequest
@@ -40,6 +41,7 @@ class ECUUpdateServer:
             self.running = True
 
             logging.info(f"Server started on {self.host}:{self.port}")
+            logging.info(f"🔄 Flashing feedback collection enabled")
             
             # Start accepting connections
             while self.running:
@@ -59,19 +61,6 @@ class ECUUpdateServer:
         except Exception as e:
             logging.error(f"Failed to start server: {str(e)}")
             self.shutdown()
-
-    def receive_requests(self):
-        """Main loop to receive client connections"""
-        while self.running:
-            try:
-                client_socket, (client_ip, client_port) = self.socket.accept()
-                client_thread = threading.Thread(
-                    target=self.handle_client,
-                    args=(client_socket, client_ip, client_port)
-                )
-                client_thread.start()
-            except Exception as e:
-                logging.error(f"Error accepting connection: {str(e)}")
 
     def handle_client(self, client_socket: socket.socket, client_ip: str, client_port: int):
         """Handle individual client connection"""
@@ -160,6 +149,18 @@ class ECUUpdateServer:
                         self.check_for_updates(request, client_socket)
                         logging.info(f"Completed update check for car ID: {car_id}")
                     
+                    # NEW: Handle flashing feedback
+                    elif message['type'] == Protocol.FLASHING_FEEDBACK:
+                        logging.info(f"📋 Processing flashing feedback from car ID: {car_id}")
+                        self.handle_flashing_feedback(request, message['payload'], client_socket)
+                        logging.info(f"✅ Completed flashing feedback processing for car ID: {car_id}")
+                    
+                    # NEW: Handle server metrics request
+                    elif message['type'] == Protocol.SERVER_METRICS_REQUEST:
+                        logging.info(f"📊 Processing metrics request from car ID: {car_id}")
+                        self.handle_metrics_request(request, message['payload'], client_socket)
+                        logging.info(f"✅ Completed metrics request for car ID: {car_id}")
+                    
                     else:
                         logging.warning(f"Unknown message type '{message['type']}' received from car ID: {car_id}")
                         client_socket.send(Protocol.create_error_message(
@@ -184,6 +185,165 @@ class ECUUpdateServer:
                 logging.error(f"Error closing connection for {client_ip}:{client_port}: {str(e)}")
             logging.info(f"Connection terminated for client {client_ip}:{client_port}")
 
+    # NEW: Handle flashing feedback from cars
+    def handle_flashing_feedback(self, request: Request, payload: Dict, client_socket: socket.socket):
+        """Handle flashing feedback received from a car"""
+        try:
+            logging.info(f"📋 Processing flashing feedback from car {request.car_id}")
+            
+            # Extract feedback data from payload
+            feedback_data = payload.get('data', {})
+            
+            # Validate required fields
+            required_fields = ['session_id', 'car_id', 'car_type', 'flashing_timestamp', 
+                             'overall_status', 'total_ecus', 'final_ecu_versions']
+            
+            for field in required_fields:
+                if field not in feedback_data:
+                    raise ValueError(f"Missing required field: {field}")
+            
+            # Convert timestamp from milliseconds to datetime
+            flashing_timestamp = datetime.fromtimestamp(feedback_data['flashing_timestamp'] / 1000)
+            
+            # Create FlashingFeedback object
+            feedback = FlashingFeedback(
+                session_id=feedback_data['session_id'],
+                car_id=feedback_data['car_id'],
+                car_type=feedback_data['car_type'],
+                flashing_timestamp=flashing_timestamp,
+                overall_status=feedback_data['overall_status'],
+                total_ecus=feedback_data['total_ecus'],
+                successful_ecus=feedback_data.get('successful_ecus', []),
+                rolled_back_ecus=feedback_data.get('rolled_back_ecus', []),
+                final_ecu_versions=feedback_data['final_ecu_versions'],
+                android_app_version=feedback_data.get('android_app_version', 'unknown'),
+                beaglebone_version=feedback_data.get('beaglebone_version', 'unknown'),
+                request_id=feedback_data.get('request_id', ''),
+                received_timestamp=datetime.now()
+            )
+            
+            # Validate car exists in database
+            if not self.db_manager.validate_car_exists(feedback.car_id, feedback.car_type):
+                error_msg = f"Car {feedback.car_id} of type {feedback.car_type} not found in database"
+                logging.error(error_msg)
+                client_socket.send(Protocol.create_flashing_feedback_ack(
+                    success=False, 
+                    message=error_msg
+                ))
+                return
+            
+            # Save feedback to database
+            success = self.db_manager.save_flashing_feedback(feedback)
+            
+            if success:
+                # Send acknowledgment to car
+                client_socket.send(Protocol.create_flashing_feedback_ack(
+                    success=True,
+                    message=f"Flashing feedback received and processed successfully",
+                    session_id=feedback.session_id
+                ))
+                
+                logging.info(f"✅ Flashing feedback processed successfully for car {request.car_id}")
+                logging.info(f"   Session ID: {feedback.session_id}")
+                logging.info(f"   Status: {feedback.overall_status}")
+                logging.info(f"   Successful ECUs: {len(feedback.successful_ecus)}")
+                logging.info(f"   Rolled back ECUs: {len(feedback.rolled_back_ecus)}")
+                
+                # Log detailed results for monitoring
+                self._log_flashing_results(feedback)
+                
+            else:
+                client_socket.send(Protocol.create_flashing_feedback_ack(
+                    success=False,
+                    message="Failed to save flashing feedback to database"
+                ))
+                logging.error(f"❌ Failed to save flashing feedback for car {request.car_id}")
+                
+        except ValueError as e:
+            logging.error(f"Invalid flashing feedback data from car {request.car_id}: {str(e)}")
+            client_socket.send(Protocol.create_flashing_feedback_ack(
+                success=False,
+                message=f"Invalid feedback data: {str(e)}"
+            ))
+        except Exception as e:
+            logging.error(f"Error processing flashing feedback from car {request.car_id}: {str(e)}")
+            client_socket.send(Protocol.create_flashing_feedback_ack(
+                success=False,
+                message=f"Server error processing feedback: {str(e)}"
+            ))
+
+    # NEW: Handle server metrics requests
+    def handle_metrics_request(self, request: Request, payload: Dict, client_socket: socket.socket):
+        """Handle server metrics request from a car"""
+        try:
+            logging.info(f"📊 Processing metrics request from car {request.car_id}")
+            
+            # Get metrics based on request type
+            metrics_type = payload.get('metrics_type', 'summary')
+            car_type_filter = payload.get('car_type_filter')
+            days = payload.get('days', 30)
+            
+            if metrics_type == 'summary':
+                metrics = self.db_manager.get_flashing_metrics_summary(
+                    car_type=car_type_filter, 
+                    days=days
+                )
+            elif metrics_type == 'car_history':
+                car_id = payload.get('target_car_id', request.car_id)
+                metrics = self.db_manager.get_car_flashing_history(car_id)
+            elif metrics_type == 'ecu_success_rates':
+                metrics = self.db_manager.get_ecu_success_rates(car_type=car_type_filter)
+            elif metrics_type == 'recent_activities':
+                limit = payload.get('limit', 50)
+                metrics = self.db_manager.get_recent_flashing_activities(limit=limit)
+            else:
+                metrics = {"error": f"Unknown metrics type: {metrics_type}"}
+            
+            # Send metrics response
+            client_socket.send(Protocol.create_metrics_response(metrics))
+            logging.info(f"✅ Sent {metrics_type} metrics to car {request.car_id}")
+            
+        except Exception as e:
+            logging.error(f"Error processing metrics request from car {request.car_id}: {str(e)}")
+            client_socket.send(Protocol.create_error_message(
+                500, f"Failed to retrieve metrics: {str(e)}"
+            ))
+
+    # NEW: Log flashing results for monitoring
+    def _log_flashing_results(self, feedback: FlashingFeedback):
+        """Log detailed flashing results for monitoring and analytics"""
+        try:
+            logging.info(f"📈 FLASHING ANALYTICS - Car: {feedback.car_id}")
+            logging.info(f"   Car Type: {feedback.car_type}")
+            logging.info(f"   Session: {feedback.session_id}")
+            logging.info(f"   Timestamp: {feedback.flashing_timestamp}")
+            logging.info(f"   Overall Status: {feedback.overall_status.upper()}")
+            logging.info(f"   Total ECUs: {feedback.total_ecus}")
+            
+            if feedback.successful_ecus:
+                logging.info(f"   ✅ Successful ECUs ({len(feedback.successful_ecus)}):")
+                for ecu in feedback.successful_ecus:
+                    version = feedback.final_ecu_versions.get(ecu, 'unknown')
+                    logging.info(f"      • {ecu} → {version}")
+            
+            if feedback.rolled_back_ecus:
+                logging.info(f"   ⚠️ Rolled Back ECUs ({len(feedback.rolled_back_ecus)}):")
+                for ecu in feedback.rolled_back_ecus:
+                    version = feedback.final_ecu_versions.get(ecu, 'unknown')
+                    logging.info(f"      • {ecu} → {version} (rolled back)")
+            
+            failed_count = feedback.total_ecus - len(feedback.successful_ecus) - len(feedback.rolled_back_ecus)
+            if failed_count > 0:
+                logging.info(f"   ❌ Failed ECUs: {failed_count}")
+            
+            # Calculate success rate for this session
+            success_rate = (len(feedback.successful_ecus) / feedback.total_ecus) * 100 if feedback.total_ecus > 0 else 0
+            logging.info(f"   📊 Session Success Rate: {success_rate:.1f}%")
+            
+        except Exception as e:
+            logging.error(f"Error logging flashing results: {str(e)}")
+
+    # Keep all existing methods unchanged
     def check_authentication(self, request: Request) -> bool:
         """Authenticate the car request"""
         try:
@@ -211,30 +371,9 @@ class ECUUpdateServer:
             logging.error(f"Authentication error: {str(e)}")
             request.status = RequestStatus.FAILED
             return False
-        
-    def allocate_service(self, request: Request, client_socket: socket.socket):
-        logging.info(f"allocating new service with service name:{request.service_type}")
-        """Allocate appropriate service based on request type"""
-        try:
-            request.status = RequestStatus.SERVICE_IN_PROGRESS
-            
-            if request.service_type == ServiceType.CHECK_FOR_UPDATE:
-                self.check_for_updates(request, client_socket)
-            elif request.service_type == ServiceType.DOWNLOAD_UPDATE:
-                self.handle_download_request(request, client_socket)
-            else:
-                logging.error(f"Unknown service type")
-                raise Exception("Unknown service type")
-
-        except Exception as e:
-            logging.error(f"Service allocation error: {str(e)}")
-            request.status = RequestStatus.FAILED
-            client_socket.send(Protocol.create_error_message(
-                500, "Service allocation failed"
-            ))
 
     def check_for_updates(self, request: Request, client_socket: socket.socket):
-        self.db_manager=DatabaseManager(data_directory=self.data_directory)
+        self.db_manager = DatabaseManager(data_directory=self.data_directory)
         self.car_types = self.db_manager.load_all_data()
         logging.info(f"checking-for-update method started processing for client:{request.ip_address}")
         """Check if updates are available for the car"""
@@ -265,7 +404,9 @@ class ECUUpdateServer:
             client_socket.send(Protocol.create_error_message(
                 500, "Update check failed"
             ))
-            
+
+    # ... Keep all other existing methods unchanged (handle_download_request, send_new_versions, etc.) ...
+
     def handle_download_request(self, request: Request, client_socket: socket.socket):
         """Handle download request for new ECU versions"""
         try:
@@ -280,7 +421,6 @@ class ECUUpdateServer:
             if not required_versions:
                 raise Exception("No versions specified for download")
 
-
             # Create download request
             download_request = DownloadRequest(
                 timestamp=datetime.now(),
@@ -293,7 +433,6 @@ class ECUUpdateServer:
                 status=DownloadStatus.PREPARING_FILES,
                 active_transfers={},
                 file_offsets=file_offsets
-
             )
 
             self.active_downloads[request.car_id] = download_request
@@ -348,12 +487,6 @@ class ECUUpdateServer:
             download_request.total_size = total_size
 
             # Send download start message
-            # start_message = Protocol.create_message(Protocol.DOWNLOAD_START, {
-            #     'total_size': total_size,
-            #     'files': {name: info['size'] for name, info in files_info.items()}
-            # })
-
-            # Send download start message
             start_message = Protocol.create_message(Protocol.DOWNLOAD_START, {
                 'total_size': total_size,
                 'files': {name: info['size'] for name, info in files_info.items()},
@@ -362,6 +495,7 @@ class ECUUpdateServer:
             
             client_socket.send(start_message)
             logging.info(f"Download Start message for client on ip:{download_request.ip_address} port: {download_request.port} , with message:{start_message}")
+            
             # Wait for client acknowledgment
             ack = self.receive_message(client_socket)
             if not ack or ack['type'] != "DOWNLOAD_ACK":

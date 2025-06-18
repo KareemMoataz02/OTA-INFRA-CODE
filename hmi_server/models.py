@@ -75,3 +75,78 @@ class DownloadRequest:
     transferred_size: int = 0
     active_transfers: Dict[str, bool] = None
     file_offsets: Dict[str, int] = field(default_factory=dict)
+
+# NEW: Flashing feedback models
+@dataclass
+class FlashingFeedback:
+    """Represents flashing results feedback from a car"""
+    session_id: str
+    car_id: str
+    car_type: str
+    flashing_timestamp: datetime
+    overall_status: str  # "completed", "partial_failure", "failed"
+    total_ecus: int
+    successful_ecus: List[str]
+    rolled_back_ecus: List[str]
+    final_ecu_versions: Dict[str, str]  # ECU name -> final version after flashing
+    android_app_version: str
+    beaglebone_version: str
+    request_id: str  # Links back to the original download request
+    received_timestamp: datetime = field(default_factory=datetime.now)
+    
+@dataclass
+class EcuFlashingResult:
+    """Detailed result for individual ECU flashing"""
+    ecu_name: str
+    status: str  # "success", "rolled_back", "failed", "system_failure"
+    old_version: str
+    attempted_version: str
+    final_version: str
+    flashing_attempts: int
+    error_message: Optional[str] = None
+
+@dataclass
+class FlashingSession:
+    """Complete flashing session information"""
+    session_id: str
+    car_id: str
+    car_type: str
+    start_time: datetime
+    end_time: datetime
+    overall_status: str
+    ecu_results: List[EcuFlashingResult]
+    total_ecus: int
+    successful_ecus: int
+    rolled_back_ecus: int
+    failed_ecus: int
+    download_request_id: str
+    beaglebone_version: str
+    android_version: str
+    notes: Optional[str] = None
+
+# NEW: Server metrics and analytics models
+@dataclass
+class FlashingMetrics:
+    """Server-side flashing metrics and analytics"""
+    car_type: str
+    ecu_name: str
+    version: str
+    success_rate: float
+    total_attempts: int
+    successful_attempts: int
+    failed_attempts: int
+    rollback_attempts: int
+    last_updated: datetime = field(default_factory=datetime.now)
+
+@dataclass
+class CarFlashingHistory:
+    """Historical flashing data for a specific car"""
+    car_id: str
+    car_type: str
+    total_flashing_sessions: int
+    successful_sessions: int
+    partial_success_sessions: int
+    failed_sessions: int
+    last_flashing_date: Optional[datetime] = None
+    current_ecu_versions: Dict[str, str] = field(default_factory=dict)
+    flashing_sessions: List[str] = field(default_factory=list)  # Session IDs
